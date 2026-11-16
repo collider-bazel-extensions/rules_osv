@@ -1,0 +1,4 @@
+[[PackageOverrides]]
+name = "lodash"
+ecosystem = "npm"
+ignore = true

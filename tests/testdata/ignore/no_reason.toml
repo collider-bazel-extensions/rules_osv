@@ -1,0 +1,8 @@
+[[IgnoredVulns]]
+id = "GO-2020-0001"
+effectiveUntil = 2099-12-31
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2021-0003"
+effectiveUntil = 2099-12-31
+reason = "   "

@@ -1,0 +1,28 @@
+# all.toml with CVE-2020-8203 (lodash's GHSA-p6mc-m468-83gw) expired on 2020-01-01.
+# Some ids are aliases of what osv-scanner reports (CVE-2020-8203 for
+# GHSA-p6mc-m468-83gw; GHSA-462w-v97r-4m45 groups with PYSEC-2019-217).
+
+[[IgnoredVulns]]
+id = "GO-2020-0001"
+effectiveUntil = 2099-12-31
+reason = "Fixture: gin's log injection; the logger is not exposed."
+
+[[IgnoredVulns]]
+id = "GHSA-35jh-r3h4-6jhm"
+effectiveUntil = 2099-12-31T00:00:00Z
+reason = "Fixture: lodash.template is never called with user input."
+
+[[IgnoredVulns]]
+id = "CVE-2020-8203"
+effectiveUntil = 2020-01-01
+reason = "Fixture: zipObjectDeep is not used."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2021-0003"
+ignoreUntil = 2099-12-31   # osv-scanner's deprecated spelling is accepted
+reason = "Fixture: insert_many is not called."
+
+[[IgnoredVulns]]
+id = "GHSA-462w-v97r-4m45"
+effectiveUntil = 2099-12-31
+reason = "Fixture: templates are not user-supplied."

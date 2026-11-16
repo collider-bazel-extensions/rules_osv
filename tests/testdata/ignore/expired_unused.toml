@@ -1,0 +1,6 @@
+# One expired entry, for lockfiles with no findings: still a failure.
+
+[[IgnoredVulns]]
+id = "GHSA-p6mc-m468-83gw"
+effectiveUntil = 2021-06-30
+reason = "Fixture: upgraded long ago; the entry was never removed."

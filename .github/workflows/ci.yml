@@ -1,0 +1,71 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      snapshot:
+        description: "Also run //tests:snapshot_test against the pinned snapshot's release assets (db-<date>)"
+        type: boolean
+        default: false
+
+jobs:
+  test:
+    name: bazel test (ubuntu-latest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: bazel-contrib/setup-bazel@0.15.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
+
+      # block-network needs Bazel's linux-sandbox, which needs unprivileged
+      # user namespaces; Ubuntu 24.04's AppArmor restricts them by default.
+      # //tests:network_blocked_test fails if the tests aren't sandboxed.
+      - name: Allow the linux-sandbox
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+
+      - name: bazel build //...
+        run: bazel build //...
+
+      # Offline: every scan uses the fixture database in tests/testdata; no
+      # release asset is needed.
+      - name: bazel test //tests/...
+        run: bazel test //tests/... --test_output=errors
+
+      - name: The real snapshot (release assets db-<date>)
+        if: github.event_name == 'workflow_dispatch' && inputs.snapshot
+        run: bazel test //tests:snapshot_test --test_output=all
+
+      - name: Upload test logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bazel-testlogs
+          path: bazel-testlogs/
+          if-no-files-found: ignore
+
+  consumer:
+    # The release archive (git archive honours .gitattributes export-ignore,
+    # as GitHub's tag tarballs do) must load with //... for a consumer, and
+    # osv_scan_test must work from it with a self-pinned (file://) snapshot.
+    name: consumer (ubuntu-latest, git archive)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bazel-contrib/setup-bazel@0.15.0
+        with:
+          bazelisk-cache: true
+          repository-cache: true
+
+      - name: Allow the linux-sandbox
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+
+      - name: Consumer check
+        run: .github/consumer/check.sh "$RUNNER_TEMP/consumer"

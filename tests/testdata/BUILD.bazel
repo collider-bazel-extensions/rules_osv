@@ -1,0 +1,39 @@
+load("//:defs.bzl", "osv_db")
+
+package(default_visibility = ["//tests:__subpackages__"])
+
+exports_files(glob(["**"]))
+
+# The fixture database: a few real OSV records (copied from the
+# 2026-11-16 snapshot, pretty-printed), zipped at build time. Small, so the
+# tests don't need the multi-hundred-MB snapshot. See README.md.
+[osv_db(
+    name = "db_" + eco.replace(".", "_"),
+    advisories = glob(["db/{}/*.json".format(eco)]),
+    ecosystem = eco,
+    snapshot = "fixture",
+) for eco in [
+    "Go",
+    "npm",
+    "crates.io",
+    "PyPI",
+]]
+
+filegroup(
+    name = "vulnerable",
+    srcs = glob(["vulnerable/*"]),
+)
+
+filegroup(
+    name = "clean",
+    srcs = glob(["clean/*"]),
+)
+
+# A MODULE.bazel.lock, which osv-scanner 2.7.1 can't read (//tests:module_lock_fails_test).
+# Generated, because this repository never commits a file of that name.
+genrule(
+    name = "module_bazel_lock",
+    srcs = ["unsupported/bzlmod/module_bazel_lock.json"],
+    outs = ["unsupported/bzlmod/MODULE.bazel.lock"],
+    cmd = "cp $< $@",
+)

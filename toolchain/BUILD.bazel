@@ -1,0 +1,54 @@
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load(":toolchain.bzl", "current_osv_scanner_toolchain")
+
+package(default_visibility = ["//visibility:public"])
+
+exports_files(["toolchain.bzl"])
+
+toolchain_type(name = "osv_scanner")
+
+# The resolved osv-scanner for the target platform, usable as `data`.
+current_osv_scanner_toolchain(name = "current")
+
+# Per-platform toolchains. Each `osv_scanner_<plat>` repo (created by the
+# module extension) holds one platform's binary and its toolchain
+# implementation, at whichever version the extension resolved. A repo is
+# fetched only when its toolchain is selected.
+
+toolchain(
+    name = "osv_scanner_linux_amd64",
+    exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
+    target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
+    toolchain = "@osv_scanner_linux_amd64//:toolchain_impl",
+    toolchain_type = ":osv_scanner",
+)
+
+toolchain(
+    name = "osv_scanner_linux_arm64",
+    exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:arm64"],
+    target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:arm64"],
+    toolchain = "@osv_scanner_linux_arm64//:toolchain_impl",
+    toolchain_type = ":osv_scanner",
+)
+
+toolchain(
+    name = "osv_scanner_darwin_amd64",
+    exec_compatible_with = ["@platforms//os:osx", "@platforms//cpu:x86_64"],
+    target_compatible_with = ["@platforms//os:osx", "@platforms//cpu:x86_64"],
+    toolchain = "@osv_scanner_darwin_amd64//:toolchain_impl",
+    toolchain_type = ":osv_scanner",
+)
+
+toolchain(
+    name = "osv_scanner_darwin_arm64",
+    exec_compatible_with = ["@platforms//os:osx", "@platforms//cpu:arm64"],
+    target_compatible_with = ["@platforms//os:osx", "@platforms//cpu:arm64"],
+    toolchain = "@osv_scanner_darwin_arm64//:toolchain_impl",
+    toolchain_type = ":osv_scanner",
+)
+
+bzl_library(
+    name = "toolchain",
+    srcs = ["toolchain.bzl"],
+    deps = ["//private:providers"],
+)

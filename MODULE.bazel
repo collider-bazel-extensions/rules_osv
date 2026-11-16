@@ -1,0 +1,38 @@
+"""rules_osv — osv-scanner dependency vulnerability scanning for Bazel, offline.
+
+  osv_scan_test  — test: no known vulnerabilities in lockfiles, matched
+                   offline against a pinned OSV database snapshot
+  osv_db         — one ecosystem's OSV database (a pinned snapshot, a
+                   mirror, or OSV JSON records)
+
+Pinned: osv-scanner 2.7.1 (upstream release binaries) and an OSV database
+snapshot hosted as release assets of this repository (db-<date> tags).
+"""
+
+module(
+    name = "rules_osv",
+    version = "0.1.0",
+)
+
+bazel_dep(name = "bazel_skylib", version = "1.8.2")
+bazel_dep(name = "platforms", version = "1.0.0")
+
+# Public binary toolchain and database. The `osv` extension creates
+# osv_scanner_<platform> repos at the root module's osv.version(), or at
+# this module's when the root names none; and the `osv_db` hub at the root's
+# osv.db(name = "osv_db"), or at this module's (DEFAULT_DB_DATE).
+osv = use_extension("//:extensions.bzl", "osv")
+osv.version(version = "2.7.1")
+osv.db(name = "osv_db")
+use_repo(
+    osv,
+    "osv_db",
+    "osv_scanner_darwin_amd64",
+    "osv_scanner_darwin_arm64",
+    "osv_scanner_linux_amd64",
+    "osv_scanner_linux_arm64",
+)
+register_toolchains("@rules_osv//toolchain:all")
+
+# ---- dev-only ---------------------------------------------------------------
+bazel_dep(name = "rules_shell", version = "0.8.0", dev_dependency = True)

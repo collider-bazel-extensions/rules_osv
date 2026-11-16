@@ -1,0 +1,250 @@
+"""Tests for rules_osv. Every scan uses the small fixture database in
+testdata/ (real OSV records, zipped at build time), runs offline and is
+tagged block-network; network_blocked_test shows that tag really leaves a
+test without network. The one test against the real snapshot
+(snapshot_test) is manual: it downloads the pinned zips."""
+
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("//:defs.bzl", "osv_scan_test")
+load("//private:db_snapshots.bzl", "DEFAULT_DB_DATE")
+load(":analysis_tests.bzl", "analysis_test_suite")
+
+_DB = [
+    "//tests/testdata:db_Go",
+    "//tests/testdata:db_npm",
+    "//tests/testdata:db_crates_io",
+    "//tests/testdata:db_PyPI",
+]
+
+_NET = ["block-network"]
+
+_MANUAL = ["manual"]
+
+# ---- osv_scan_test: must pass ---------------------------------------------------
+
+# Fixed versions of every package: no findings.
+osv_scan_test(
+    name = "clean_test",
+    db = _DB,
+    lockfiles = ["//tests/testdata:clean"],
+)
+
+# Vulnerable versions, every finding covered by an ignore entry (by its id
+# or an alias), in effect until 2099.
+osv_scan_test(
+    name = "ignored_test",
+    db = _DB,
+    ignore = "//tests/testdata:ignore/all.toml",
+    lockfiles = ["//tests/testdata:vulnerable"],
+)
+
+# The same with the vendored tomli forced (as on Python < 3.11).
+osv_scan_test(
+    name = "ignored_vendored_toml_test",
+    db = _DB,
+    env = {"RULES_OSV_VENDORED_TOML": "1"},
+    ignore = "//tests/testdata:ignore/all.toml",
+    lockfiles = ["//tests/testdata:vulnerable"],
+)
+
+# ---- osv_scan_test: must fail (run by the *_fails_test targets below) -----------
+
+osv_scan_test(
+    name = "vulnerable_scan",
+    db = _DB,
+    lockfiles = ["//tests/testdata:vulnerable"],
+    tags = _MANUAL,
+)
+
+osv_scan_test(
+    name = "expired_scan",
+    db = _DB,
+    ignore = "//tests/testdata:ignore/expired.toml",
+    lockfiles = ["//tests/testdata:vulnerable"],
+    tags = _MANUAL,
+)
+
+osv_scan_test(
+    name = "expired_unused_scan",
+    db = _DB,
+    ignore = "//tests/testdata:ignore/expired_unused.toml",
+    lockfiles = ["//tests/testdata:clean"],
+    tags = _MANUAL,
+)
+
+[osv_scan_test(
+    name = "malformed_{}_scan".format(name),
+    db = _DB,
+    ignore = "//tests/testdata:ignore/{}.toml".format(name),
+    lockfiles = ["//tests/testdata:clean"],
+    tags = _MANUAL,
+) for name in [
+    "no_reason",
+    "no_expiry",
+    "string_date",
+    "unknown_key",
+    "overrides",
+    "duplicate",
+    "bad_toml",
+]]
+
+osv_scan_test(
+    name = "missing_db_scan",
+    db = ["//tests/testdata:db_Go"],
+    lockfiles = ["//tests/testdata:vulnerable/pnpm-lock.yaml"],
+    tags = _MANUAL,
+)
+
+osv_scan_test(
+    name = "go_sum_scan",
+    db = ["//tests/testdata:db_Go"],
+    lockfiles = ["//tests/testdata:unsupported/gosum/go.sum"],
+    tags = _MANUAL,
+)
+
+osv_scan_test(
+    name = "module_lock_scan",
+    db = ["//tests/testdata:db_Go"],
+    lockfiles = ["//tests/testdata:unsupported/bzlmod/MODULE.bazel.lock"],
+    tags = _MANUAL,
+)
+
+# <name>_fails_test runs <name>_scan: (exit code, strings its output must hold).
+_FAILS = {
+    "vulnerable": (1, [
+        "OSV database snapshot fixture: crates.io, Go, npm, PyPI",
+        "5 known vulnerabilities in 4 package(s)",
+        "tests/testdata/vulnerable/go.mod  Go github.com/gin-gonic/gin@1.5.0  GO-2020-0001",
+        "tests/testdata/vulnerable/pnpm-lock.yaml  npm lodash@4.17.15  GHSA-35jh-r3h4-6jhm",
+        "tests/testdata/vulnerable/pnpm-lock.yaml  npm lodash@4.17.15  GHSA-p6mc-m468-83gw",
+        "tests/testdata/vulnerable/Cargo.lock  crates.io smallvec@1.6.0  RUSTSEC-2021-0003",
+        "tests/testdata/vulnerable/requirements.txt  PyPI jinja2@2.10  PYSEC-2019-217, GHSA-462w-v97r-4m45",
+        "fixed in 1.6.0",
+    ]),
+    # The expired entry's finding comes back, and the entry itself fails.
+    "expired": (1, [
+        "1 known vulnerability in 1 package(s)",
+        "npm lodash@4.17.15  GHSA-p6mc-m468-83gw",
+        "1 expired ignore entry in tests/testdata/ignore/expired.toml",
+        "CVE-2020-8203  effectiveUntil = 2020-01-01 (expired ",
+        "ignored  github.com/gin-gonic/gin@1.5.0 GO-2020-0001",
+    ]),
+    # No findings at all: the expired entry alone fails the test.
+    "expired_unused": (1, [
+        "1 expired ignore entry in tests/testdata/ignore/expired_unused.toml",
+        "GHSA-p6mc-m468-83gw  effectiveUntil = 2021-06-30",
+    ]),
+    "malformed_no_reason": (2, [
+        "tests/testdata/ignore/no_reason.toml: malformed ignore file",
+        "IgnoredVulns[0] (id GO-2020-0001): 'reason' is missing or empty",
+        "IgnoredVulns[1] (id RUSTSEC-2021-0003): 'reason' is missing or empty",
+    ]),
+    "malformed_no_expiry": (2, ["IgnoredVulns[0] (id GO-2020-0001): no expiry: set effectiveUntil"]),
+    "malformed_string_date": (2, ["effectiveUntil must be a TOML date such as 2027-01-31 (unquoted), not '2099-12-31'"]),
+    "malformed_unknown_key": (2, ["unknown key 'reasn'"]),
+    "malformed_overrides": (2, ["unknown top-level key 'PackageOverrides'"]),
+    "malformed_duplicate": (2, ["IgnoredVulns[1] (id GO-2020-0001): duplicate id, also IgnoredVulns[0]"]),
+    "malformed_bad_toml": (2, ["tests/testdata/ignore/bad_toml.toml: not valid TOML"]),
+    "missing_db": (2, ["a lockfile has npm packages but `db` has no npm database (it has: Go)"]),
+    # osv-scanner 2.7.1 reads neither (README: Lockfiles).
+    "go_sum": (2, ["osv-scanner can't read tests/testdata/unsupported/gosum/go.sum: not a lockfile it supports"]),
+    "module_lock": (2, ["osv-scanner can't read tests/testdata/unsupported/bzlmod/MODULE.bazel.lock: not a lockfile it supports"]),
+}
+
+[sh_test(
+    name = name + "_fails_test",
+    srcs = ["expect_failure.sh"],
+    # args are shell-tokenized: single-quote each string.
+    args = ["$(rootpath :{}_scan)".format(name), str(rc)] + ["'" + x.replace("'", "'\\''") + "'" for x in strings],
+    data = [":{}_scan".format(name)],
+    tags = _NET,
+) for name, (rc, strings) in _FAILS.items()]
+
+# The vendored tomli really parses the ignore file.
+sh_test(
+    name = "vendored_toml_test",
+    srcs = ["expect_failure.sh"],
+    args = [
+        "$(rootpath :ignored_vendored_toml_test)",
+        "0",
+        "'parsed with tomli 2.2.1'",
+        "'PASS: no known vulnerabilities (5 ignored)'",
+    ],
+    data = [":ignored_vendored_toml_test"],
+    # The inner test's env applies only when Bazel runs it; here it is run
+    # as a plain script.
+    env = {"RULES_OSV_VENDORED_TOML": "1"},
+    tags = _NET,
+)
+
+# ---- offline -----------------------------------------------------------------------
+
+sh_test(
+    name = "network_blocked_test",
+    srcs = ["network_blocked_test.sh"],
+    tags = _NET,
+)
+
+# ---- the real snapshot (manual: downloads the pinned zips, ~280 MB) --------------
+#
+#   bazel test //tests:snapshot_test
+#   bazel test //tests:snapshot_test --distdir=/path/to/db-<date>   # before the release exists
+
+osv_scan_test(
+    name = "snapshot_scan",
+    db = [
+        "@osv_db//:Go",
+        "@osv_db//:npm",
+        "@osv_db//:crates.io",
+        "@osv_db//:PyPI",
+    ],
+    lockfiles = ["//tests/testdata:vulnerable"],
+    tags = _MANUAL,
+)
+
+sh_test(
+    name = "snapshot_test",
+    srcs = ["expect_failure.sh"],
+    args = [
+        "$(rootpath :snapshot_scan)",
+        "1",
+        "'OSV database snapshot {}: crates.io (sha256 '".format(DEFAULT_DB_DATE),
+        "GO-2020-0001",
+        "GHSA-p6mc-m468-83gw",
+        "RUSTSEC-2021-0003",
+        "PYSEC-2019-217",
+    ],
+    data = [":snapshot_scan"],
+    tags = _NET + _MANUAL,
+)
+
+# ---- pins ------------------------------------------------------------------------
+
+sh_test(
+    name = "checksums_test",
+    srcs = ["checksums_test.sh"],
+    data = ["//private:versions.bzl"],
+)
+
+sh_test(
+    name = "db_snapshots_test",
+    srcs = ["db_snapshots_test.sh"],
+    data = ["//private:db_snapshots.bzl"],
+)
+
+sh_test(
+    name = "version_test",
+    srcs = ["version_test.sh"],
+    args = [
+        "$(rootpath //private:versions.bzl)",
+        "$(rootpath //:MODULE.bazel)",
+        "$(rootpath //toolchain:current)",
+    ],
+    data = [
+        "//:MODULE.bazel",
+        "//private:versions.bzl",
+        "//toolchain:current",
+    ],
+)
+
+analysis_test_suite(name = "analysis_tests")

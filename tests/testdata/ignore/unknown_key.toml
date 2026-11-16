@@ -1,0 +1,4 @@
+[[IgnoredVulns]]
+id = "GO-2020-0001"
+effectiveUntil = 2099-12-31
+reasn = "Fixture: a typo."
