@@ -17,7 +17,7 @@ archive_override(
     module_name = "rules_osv",
     urls = ["https://github.com/collider-bazel-extensions/rules_osv/archive/refs/tags/v0.1.0.tar.gz"],
     strip_prefix = "rules_osv-0.1.0",
-    integrity = "INTEGRITY_AFTER_TAG",
+    integrity = "sha256-D0ryOxpOkFB9IxteVC1OmCy7IUVSVNc+Wbg7HCisq3s=",
 )
 
 osv = use_extension("@rules_osv//:extensions.bzl", "osv")
