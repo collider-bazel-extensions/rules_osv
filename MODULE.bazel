@@ -11,7 +11,7 @@ snapshot hosted as release assets of this repository (db-<date> tags).
 
 module(
     name = "rules_osv",
-    version = "0.1.0",
+    version = "0.1.1",
 )
 
 bazel_dep(name = "bazel_skylib", version = "1.8.2")

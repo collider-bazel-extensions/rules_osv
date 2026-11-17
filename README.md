@@ -12,11 +12,11 @@ No host osv-scanner needed. The binary is the upstream release for linux and dar
 ## Install (Bzlmod)
 
 ```python
-bazel_dep(name = "rules_osv", version = "0.1.0")
+bazel_dep(name = "rules_osv", version = "0.1.1")
 archive_override(
     module_name = "rules_osv",
-    urls = ["https://github.com/collider-bazel-extensions/rules_osv/archive/refs/tags/v0.1.0.tar.gz"],
-    strip_prefix = "rules_osv-0.1.0",
+    urls = ["https://github.com/collider-bazel-extensions/rules_osv/archive/refs/tags/v0.1.1.tar.gz"],
+    strip_prefix = "rules_osv-0.1.1",
     integrity = "sha256-D0ryOxpOkFB9IxteVC1OmCy7IUVSVNc+Wbg7HCisq3s=",
 )
 
@@ -247,3 +247,9 @@ See [DESIGN.md](DESIGN.md) for the design and trade-offs, and [CLAUDE.md](CLAUDE
 Want Bazel rules for another tool or service?
 [Request a rules package](https://github.com/collider-bazel-extensions/.github/issues/new?template=request-a-rules-package.yml).
 The [organization page](https://github.com/collider-bazel-extensions) lists every package.
+
+## License
+
+[Apache License 2.0](LICENSE) (SPDX: `Apache-2.0`).
+
+`private/third_party/tomli/` is a vendored copy of [tomli](https://github.com/hukkin/tomli), under the MIT licence in [its LICENSE](private/third_party/tomli/LICENSE).
